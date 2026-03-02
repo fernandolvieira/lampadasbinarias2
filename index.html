@@ -2,70 +2,114 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Desafio Binário com Ranking - Prof. Fernando</title>
+    <title>Desafio Binário Rankeado - Prof. Fernando</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; padding: 20px; }
-        .setup-screen { background: #333; padding: 20px; border-radius: 10px; display: inline-block; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #121212; color: #eee; padding: 10px; }
+        .setup-screen { background: #1e1e1e; padding: 30px; border-radius: 15px; display: inline-block; border: 1px solid #333; margin-top: 50px; }
         .game-screen { display: none; }
-        #target-num { color: #ff4d4d; font-size: 5rem; margin: 20px; }
-        .lamp-container { display: flex; justify-content: center; gap: 8px; margin-bottom: 30px; }
-        .lamp { width: 45px; height: 70px; background: #444; border-radius: 20px; cursor: pointer; border: 2px solid #222; }
-        .lamp.on { background: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; }
-        .rank-table { margin: 20px auto; border-collapse: collapse; width: 300px; }
-        .rank-table th, .rank-table td { border: 1px solid #555; padding: 8px; font-size: 0.9rem; }
-        button { padding: 10px 20px; cursor: pointer; background: #2196F3; color: white; border: none; border-radius: 5px; }
+        
+        #target-num { color: #ff3d00; font-size: 5rem; font-weight: bold; margin: 10px 0; text-shadow: 0 0 10px rgba(255,61,0,0.3); }
+        
+        /* Container das Lâmpadas */
+        .lamp-container { display: flex; justify-content: center; gap: 10px; margin: 20px auto; flex-wrap: wrap; }
+        .bit-box { display: flex; flex-direction: column; align-items: center; width: 55px; }
+        
+        /* Lâmpada Visual */
+        .lamp { 
+            width: 50px; height: 80px; background: #333; border-radius: 25px 25px 10px 10px; 
+            cursor: pointer; border: 3px solid #000; transition: 0.3s; position: relative;
+        }
+        .lamp.on { background: #ffeb3b; box-shadow: 0 0 20px #ffeb3b; border-color: #fbc02d; }
+        .lamp::after { content: ''; position: absolute; bottom: 5px; left: 10px; width: 30px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; }
+        
+        .legend { font-size: 0.75rem; margin-top: 8px; color: #888; font-family: monospace; }
+        .val-legend { font-weight: bold; color: #00e676; }
+
+        .controls { margin-top: 30px; display: flex; justify-content: center; gap: 15px; }
+        button { padding: 12px 25px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .btn-check { background: #2979ff; color: white; }
+        .btn-skip { background: #555; color: white; }
+        
+        #ranking { margin-top: 30px; width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; }
+        table { width: 100%; border-collapse: collapse; background: #1e1e1e; font-size: 0.9rem; }
+        th, td { padding: 10px; border: 1px solid #333; }
+        th { background: #252525; color: #2979ff; }
     </style>
 </head>
 <body>
 
     <div id="setup" class="setup-screen">
-        <h2>Bem-vindo ao Desafio!</h2>
-        <input type="text" id="player-name" placeholder="Seu Nome" style="padding: 10px;"><br><br>
-        <button onclick="startGame()">Começar Corrida</button>
+        <h2 style="color: #2979ff;">Desafio Binário: Professor Fernando</h2>
+        <p>Converta 3 números no menor tempo possível!</p>
+        <input type="text" id="player-name" placeholder="Digite seu nome..." style="padding: 12px; width: 200px; border-radius: 5px; border: 1px solid #444; background: #000; color: #fff;">
+        <br><br>
+        <button class="btn-check" onclick="startGame()">INICIAR DESAFIO</button>
     </div>
 
     <div id="game" class="game-screen">
-        <div id="info">Jogador: <span id="display-name"></span> | Tempo: <span id="timer">0</span>s</div>
+        <div style="background: #252525; padding: 10px; border-radius: 5px; display: inline-block;">
+            🎯 Rodada: <span id="round-count">1</span>/3 | 
+            👤 <span id="display-name"></span> | 
+            ⏱️ <span id="timer">0</span>s | 
+            ❌ Erros/Pulos: <span id="error-count">0</span>
+        </div>
+
         <div id="target-num">0</div>
-        <div class="lamp-container" id="lamps"></div>
-        <button onclick="checkAnswer()">Enviar Resposta</button>
-        
-        <h3>🏆 TOP 10 RANKING</h3>
-        <table class="rank-table" id="rank-body"></table>
+
+        <div class="lamp-container" id="lamps">
+            </div>
+
+        <div class="controls">
+            <button class="btn-check" onclick="checkAnswer()">ENVIAR RESPOSTA</button>
+            <button class="btn-skip" onclick="skipRound()">PULAR (CONTA ERRO)</button>
+        </div>
+
+        <div id="ranking">
+            <h3>🏆 TOP 10 RANKING</h3>
+            <table id="rank-table">
+                <thead><tr><th>Pos</th><th>Nome</th><th>Erros</th><th>Tempo</th></tr></thead>
+                <tbody id="rank-body"></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        const WEB_APP_URL = "COLE_AQUI_O_URL_DO_APPS_SCRIPT";
-        let startTime, timerInterval, playerName, currentTarget;
-        let acertos = 0;
+        const API_URL = "URL_DO_SEU_SCRIPT_AQUI"; // Substitua pelo link do Google Apps Script
+        let playerName, startTime, timerInterval;
+        let currentTarget, round = 1, errors = 0;
 
         function startGame() {
-            playerName = document.getElementById('player-name').value;
-            if(!playerName) return alert("Digite seu nome!");
+            playerName = document.getElementById('player-name').value.trim();
+            if(!playerName) return alert("Por favor, insira seu nome!");
             
             document.getElementById('setup').style.display = 'none';
             document.getElementById('game').style.display = 'block';
             document.getElementById('display-name').innerText = playerName;
             
-            initRound();
-            startTimer();
-            loadRanking();
-        }
-
-        function startTimer() {
             startTime = Date.now();
             timerInterval = setInterval(() => {
                 document.getElementById('timer').innerText = Math.floor((Date.now() - startTime) / 1000);
             }, 1000);
+
+            initRound();
+            loadRanking();
         }
 
         function initRound() {
             currentTarget = Math.floor(Math.random() * 1024);
             document.getElementById('target-num').innerText = currentTarget;
+            document.getElementById('round-count').innerText = round;
+            
             const container = document.getElementById('lamps');
             container.innerHTML = "";
             for (let i = 9; i >= 0; i--) {
-                container.innerHTML += `<div class="lamp" id="l-${i}" onclick="this.classList.toggle('on')"></div>`;
+                const val = Math.pow(2, i);
+                container.innerHTML += `
+                    <div class="bit-box">
+                        <div class="lamp" id="l-${i}" onclick="this.classList.toggle('on')"></div>
+                        <div class="legend">2<sup>${i}</sup></div>
+                        <div class="legend val-legend">${val}</div>
+                    </div>`;
             }
         }
 
@@ -76,33 +120,54 @@
             }
 
             if (total === currentTarget) {
-                acertos++;
-                alert("Correto! Próximo...");
-                initRound();
-                if(acertos === 3) finishGame(); // Jogo termina após 3 acertos
+                if (round < 3) {
+                    round++;
+                    initRound();
+                } else {
+                    finishGame();
+                }
             } else {
-                alert("Errado! Tente novamente.");
+                alert("Valor incorreto! Tente ajustar as lâmpadas.");
             }
         }
 
-        function finishGame() {
+        function skipRound() {
+            errors++;
+            document.getElementById('error-count').innerText = errors;
+            if (round < 3) {
+                round++;
+                initRound();
+            } else {
+                finishGame();
+            }
+        }
+
+        async function finishGame() {
             clearInterval(timerInterval);
             const finalTime = Math.floor((Date.now() - startTime) / 1000);
             
-            fetch(WEB_APP_URL, {
-                method: 'POST',
-                body: JSON.stringify({ nome: playerName, acertos: acertos, tempo: finalTime })
-            }).then(() => {
-                alert(`Fim de jogo! Tempo total: ${finalTime}s`);
-                loadRanking();
-            });
+            // Envia para o Google Sheets
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ nome: playerName, acertos: (3 - errors), tempo: finalTime })
+                });
+            } catch (e) { console.error("Erro ao salvar ranking"); }
+
+            alert(`Fim do desafio, ${playerName}!\nTempo: ${finalTime}s | Pulos: ${errors}`);
+            location.reload(); // Reinicia para o próximo aluno
         }
 
         function loadRanking() {
-            fetch(WEB_APP_URL).then(r => r.json()).then(data => {
-                let html = "<tr><th>Nome</th><th>Acertos</th><th>Tempo</th></tr>";
-                data.forEach(r => html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}s</td></tr>`);
-                document.getElementById('rank-body').innerHTML = html;
+            fetch(API_URL).then(r => r.json()).then(data => {
+                const body = document.getElementById('rank-body');
+                body.innerHTML = data.map((r, i) => `
+                    <tr>
+                        <td>${i+1}º</td>
+                        <td>${r[0]}</td>
+                        <td>${3 - r[1]}</td>
+                        <td>${r[2]}s</td>
+                    </tr>`).join('');
             });
         }
     </script>
