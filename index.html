@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Desafio Binário com Ranking - Prof. Fernando</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; padding: 20px; }
+        .setup-screen { background: #333; padding: 20px; border-radius: 10px; display: inline-block; }
+        .game-screen { display: none; }
+        #target-num { color: #ff4d4d; font-size: 5rem; margin: 20px; }
+        .lamp-container { display: flex; justify-content: center; gap: 8px; margin-bottom: 30px; }
+        .lamp { width: 45px; height: 70px; background: #444; border-radius: 20px; cursor: pointer; border: 2px solid #222; }
+        .lamp.on { background: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; }
+        .rank-table { margin: 20px auto; border-collapse: collapse; width: 300px; }
+        .rank-table th, .rank-table td { border: 1px solid #555; padding: 8px; font-size: 0.9rem; }
+        button { padding: 10px 20px; cursor: pointer; background: #2196F3; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="setup" class="setup-screen">
+        <h2>Bem-vindo ao Desafio!</h2>
+        <input type="text" id="player-name" placeholder="Seu Nome" style="padding: 10px;"><br><br>
+        <button onclick="startGame()">Começar Corrida</button>
+    </div>
+
+    <div id="game" class="game-screen">
+        <div id="info">Jogador: <span id="display-name"></span> | Tempo: <span id="timer">0</span>s</div>
+        <div id="target-num">0</div>
+        <div class="lamp-container" id="lamps"></div>
+        <button onclick="checkAnswer()">Enviar Resposta</button>
+        
+        <h3>🏆 TOP 10 RANKING</h3>
+        <table class="rank-table" id="rank-body"></table>
+    </div>
+
+    <script>
+        const WEB_APP_URL = "COLE_AQUI_O_URL_DO_APPS_SCRIPT";
+        let startTime, timerInterval, playerName, currentTarget;
+        let acertos = 0;
+
+        function startGame() {
+            playerName = document.getElementById('player-name').value;
+            if(!playerName) return alert("Digite seu nome!");
+            
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            document.getElementById('display-name').innerText = playerName;
+            
+            initRound();
+            startTimer();
+            loadRanking();
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                document.getElementById('timer').innerText = Math.floor((Date.now() - startTime) / 1000);
+            }, 1000);
+        }
+
+        function initRound() {
+            currentTarget = Math.floor(Math.random() * 1024);
+            document.getElementById('target-num').innerText = currentTarget;
+            const container = document.getElementById('lamps');
+            container.innerHTML = "";
+            for (let i = 9; i >= 0; i--) {
+                container.innerHTML += `<div class="lamp" id="l-${i}" onclick="this.classList.toggle('on')"></div>`;
+            }
+        }
+
+        function checkAnswer() {
+            let total = 0;
+            for (let i = 0; i < 10; i++) {
+                if (document.getElementById(`l-${i}`).classList.contains('on')) total += Math.pow(2, i);
+            }
+
+            if (total === currentTarget) {
+                acertos++;
+                alert("Correto! Próximo...");
+                initRound();
+                if(acertos === 3) finishGame(); // Jogo termina após 3 acertos
+            } else {
+                alert("Errado! Tente novamente.");
+            }
+        }
+
+        function finishGame() {
+            clearInterval(timerInterval);
+            const finalTime = Math.floor((Date.now() - startTime) / 1000);
+            
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ nome: playerName, acertos: acertos, tempo: finalTime })
+            }).then(() => {
+                alert(`Fim de jogo! Tempo total: ${finalTime}s`);
+                loadRanking();
+            });
+        }
+
+        function loadRanking() {
+            fetch(WEB_APP_URL).then(r => r.json()).then(data => {
+                let html = "<tr><th>Nome</th><th>Acertos</th><th>Tempo</th></tr>";
+                data.forEach(r => html += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}s</td></tr>`);
+                document.getElementById('rank-body').innerHTML = html;
+            });
+        }
+    </script>
+</body>
+</html>
