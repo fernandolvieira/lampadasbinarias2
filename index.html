@@ -2,23 +2,41 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Ranking Binário - Prof. Fernando</title>
+    <title>Desafio Binário - Prof. Fernando</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #eee; text-align: center; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        /* Telas */
         .setup-screen { background: #1e1e1e; padding: 30px; border-radius: 15px; border: 1px solid #333; margin-bottom: 20px; }
-        input { padding: 12px; width: 250px; border-radius: 5px; border: 1px solid #444; background: #000; color: #fff; font-size: 1rem; }
-        .rank-section { background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #2979ff; margin-top: 20px; }
+        .game-screen { display: none; }
+        
+        input { padding: 12px; width: 250px; border-radius: 5px; border: 1px solid #444; background: #000; color: #fff; margin-bottom: 10px; }
+        
+        /* Ranking */
+        .rank-section { background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #2979ff; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 12px; border-bottom: 1px solid #333; text-align: center; }
         th { color: #2979ff; text-transform: uppercase; font-size: 0.8rem; }
-        .game-screen { display: none; }
+
+        /* Jogo e Lâmpadas */
         #target-num { color: #ff3d00; font-size: 6rem; font-weight: bold; margin: 20px 0; }
-        .lamp-container { display: flex; justify-content: center; gap: 12px; margin: 30px 0; flex-wrap: wrap; }
-        .lamp { width: 50px; height: 80px; background: #333; border-radius: 25px 25px 10px 10px; cursor: pointer; border: 3px solid #000; transition: 0.3s; }
-        .lamp.on { background: #ffeb3b; box-shadow: 0 0 25px #ffeb3b; border-color: #fbc02d; }
+        .lamp-container { display: flex; justify-content: center; gap: 10px; margin: 30px 0; flex-wrap: wrap; }
+        
+        .bit-box { display: flex; flex-direction: column; align-items: center; width: 65px; }
+        .lamp-img { 
+            width: 50px; 
+            height: auto; 
+            cursor: pointer; 
+            transition: transform 0.1s; 
+        }
+        .lamp-img:active { transform: scale(0.9); }
+        
         .legend { font-size: 0.8rem; margin-top: 5px; color: #888; font-family: monospace; }
+        .val-txt { color: #00e676; font-weight: bold; }
+
         button { padding: 12px 30px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; background: #2979ff; color: white; }
+        .btn-skip { background: #555; margin-left: 10px; }
     </style>
 </head>
 <body>
@@ -26,76 +44,147 @@
 <div class="container">
     <div id="setup">
         <div class="setup-screen">
-            <h1 style="color: #2979ff; margin-top: 0;">Desafio Binário</h1>
-            <p>Converte 3 números no menor tempo possível para entrar no Ranking!</p>
+            <h1 style="color: #2979ff;">Desafio Binário</h1>
+            <p>Converta 3 números no menor tempo! Use as lâmpadas para somar o valor.</p>
             <input type="text" id="player-name" placeholder="Teu Nome ou Login...">
-            <br><br>
+            <br>
             <button onclick="startGame()">INICIAR DESAFIO</button>
         </div>
 
         <div class="rank-section">
-            <h3 style="margin-top: 0;">🏆 TOP 10 DA TURMA</h3>
-            <table id="main-rank">
+            <h3>🏆 TOP 10 DA TURMA</h3>
+            <table>
                 <thead>
-                    <tr><th>Pos</th><th>Aluno</th><th>Pulos/Erros</th><th>Tempo Total</th></tr>
+                    <tr><th>Pos</th><th>Aluno</th><th>Pulos</th><th>Tempo</th></tr>
                 </thead>
                 <tbody id="rank-body-init">
-                    <tr><td colspan="4">Carregando classificação...</td></tr>
+                    <tr><td colspan="4">Carregando ranking...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
     <div id="game" class="game-screen">
+        <div style="background: #252525; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <b>Rodada:</b> <span id="round-count">1</span>/3 | 
+            <b>⏱️:</b> <span id="timer">0</span>s | 
+            <b>❌:</b> <span id="error-count">0</span>
+        </div>
+
         <div id="target-num">0</div>
+
         <div class="lamp-container" id="lamps"></div>
-        <button onclick="checkAnswer()">ENVIAR RESPOSTA</button>
+
+        <div style="margin-top: 30px;">
+            <button onclick="checkAnswer()">ENVIAR RESPOSTA</button>
+            <button class="btn-skip" onclick="skipRound()">PULAR</button>
+        </div>
     </div>
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbx-n1QRk2Kx4WjhG9Aa4P9syrKrMStVxtf3iSHVK-DkZ56RPDCct8sfrSAkwTSV0Dg9gw/exec"; 
-    let playerName, startTime, timerInterval, round = 1, errors = 0;
+    // URL da sua Implantação do Apps Script (Imagem 4)
+    const API_URL = "https://script.google.com/macros/s/AKfycbyn9e_KR2AgVzFWRglXNPUIF4A9Sqd3mBeCXMfjRrezqPuCKqmoKSnaupY1kCPMHBhW/exec";
+    
+    let playerName, startTime, timerInterval, currentTarget, round = 1, errors = 0;
+    let lampStates = Array(10).fill(false);
 
-    window.onload = loadInitialRanking;
+    window.onload = loadRanking;
 
-    function loadInitialRanking() {
+    function loadRanking() {
         fetch(API_URL).then(r => r.json()).then(data => {
             const body = document.getElementById('rank-body-init');
             body.innerHTML = data.map((r, i) => `
-                <tr>
+                <tr style="${i < 3 ? 'color:#ffeb3b; font-weight:bold;' : ''}">
                     <td>${i+1}º</td>
                     <td>${r[0]}</td>
                     <td>${3 - r[1]}</td>
                     <td>${r[2]}s</td>
                 </tr>`).join('');
         }).catch(() => {
-            document.getElementById('rank-body-init').innerHTML = "<tr><td colspan='4'>Erro ao carregar ranking. Verifica o URL da API.</td></tr>";
+            document.getElementById('rank-body-init').innerHTML = "<tr><td colspan='4'>Erro ao carregar. Verifique a API.</td></tr>";
         });
     }
 
     function startGame() {
         playerName = document.getElementById('player-name').value.trim();
-        if(!playerName) return alert("Introduz o teu nome!");
+        if(!playerName) return alert("Insira seu nome!");
+        
         document.getElementById('setup').style.display = 'none';
         document.getElementById('game').style.display = 'block';
+        
         startTime = Date.now();
+        timerInterval = setInterval(() => {
+            document.getElementById('timer').innerText = Math.floor((Date.now() - startTime) / 1000);
+        }, 1000);
+
         initRound();
     }
 
     function initRound() {
-        const currentTarget = Math.floor(Math.random() * 1024);
+        currentTarget = Math.floor(Math.random() * 1024);
         document.getElementById('target-num').innerText = currentTarget;
+        document.getElementById('round-count').innerText = round;
+        lampStates.fill(false);
+        renderLamps();
+    }
+
+    function renderLamps() {
         const container = document.getElementById('lamps');
         container.innerHTML = "";
         for (let i = 9; i >= 0; i--) {
+            const status = lampStates[i] ? 'lamp_on.png' : 'lamp_off.png';
             container.innerHTML += `
-                <div style="display:flex; flex-direction:column; align-items:center;">
-                    <div class="lamp" id="l-${i}" onclick="this.classList.toggle('on')"></div>
-                    <div class="legend">${Math.pow(2, i)}</div>
+                <div class="bit-box">
+                    <img src="${status}" class="lamp-img" onclick="toggleLamp(${i})" alt="Lâmpada">
+                    <div class="legend">2<sup>${i}</sup></div>
+                    <div class="legend val-txt">${Math.pow(2, i)}</div>
                 </div>`;
         }
     }
+
+    function toggleLamp(index) {
+        lampStates[index] = !lampStates[index];
+        renderLamps();
+    }
+
+    function checkAnswer() {
+        let total = lampStates.reduce((acc, curr, i) => curr ? acc + Math.pow(2, i) : acc, 0);
+
+        if (total === currentTarget) {
+            if (round < 3) { round++; initRound(); } 
+            else { finishGame(); }
+        } else {
+            alert("Soma incorreta! Tente novamente.");
+        }
+    }
+
+    function skipRound() {
+        errors++;
+        document.getElementById('error-count').innerText = errors;
+        if (round < 3) { round++; initRound(); } 
+        else { finishGame(); }
+    }
+
+    async function finishGame() {
+        clearInterval(timerInterval);
+        const finalTime = Math.floor((Date.now() - startTime) / 1000);
+        
+        try {
+            await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    nome: playerName, 
+                    acertos: (3 - errors), 
+                    tempo: finalTime 
+                })
+            });
+        } catch (e) { console.error("Erro ao salvar"); }
+
+        alert(`Desafio Concluído!\nTempo: ${finalTime}s\nPulos: ${errors}`);
+        location.reload(); 
+    }
 </script>
+
 </body>
 </html>
